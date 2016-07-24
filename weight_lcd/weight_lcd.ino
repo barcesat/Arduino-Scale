@@ -31,20 +31,21 @@ byte mainMenuTotal = 4;
 // EEPROM
 
 int eeAddress = 1;   //Location we want the data to be put.
-int des_Address = 5;//eeAddress + sizeof(float); // = 4
-int margin_Address = 9;//eeAddress + 2*sizeof(float); // = 8
+int des_Address = 5; //eeAddress + sizeof(float);  = 5
+int margin_Address = 9; //eeAddress + 2*sizeof(float); = 9
 
+// default values
 float des_weight = 100.0f;
 float margin = 10.0f;
 
-//OUTPUT
+//OUTPUT - trigger a relay and or LED on this pin
 const int output_pin = A1;
 
-void setup() {
+void setup(){
   Serial.begin(9600);
   delay(10);
   /*
-  //write values to EEPROM
+  //write values to EEPROM - we need to do this only when the sketch runs in the first time
   EEPROM.put(des_Address, des_weight);
   Serial.print("des_weight address: "); Serial.println(des_Address);
   EEPROM.put(margin_Address, margin);
@@ -60,22 +61,19 @@ void setup() {
   EEPROM.get(margin_Address, margin);
   Serial.print("margin value: "); Serial.println(margin);
   
-  
   //LCD Menu
   lcd.begin(16,2);  //Initialize a 2x16 type LCD
   MainMenuDisplay();
-  //delay(1000);
 
   //OUTPUT
   pinMode(output_pin, OUTPUT);
   digitalWrite(output_pin, LOW);
 }
 
-void loop() {
+void loop(){
     btn_push = ReadKeypad();   
     MainMenuBtn();
-    if(btn_push == 'S')//enter selected menu
-    {
+    if(btn_push == 'S'){//enter selected menu
         WaitBtnRelease();
         switch (mainMenuPage)
         {
@@ -88,34 +86,35 @@ void loop() {
           MainMenuDisplay();
           WaitBtnRelease();
     }
-    
-    delay(10);
+    delay(10); // a little delay for stabilization
 }
 
 float measure_loadcell(){
   count = count + 1;
   //Serial.print("Reading: ");
-  val = 0.5 * val    +   0.5 * cell.read();
+  val = 0.5 * val    +   0.5 * cell.read(); //averaging filter for reading stabilization
   weight = (val - zero_weight)/-20432.0f * 100;
   //Serial.print(weight);
   //Serial.println(" grams");
-  //zero 158145
-  //100g -20432
+  /**** The values measured in the test sketch
+  zero = 158145
+  100g = -20432
+  weight = (val - zero_weight)/100g * 100;
+  *******************/
   return weight;
 }
 
 float zero_loadcell(){
   for (count = 1; count<200; count++){
-  zero_weight = ((count-1)/count) * zero_weight  +  (1/count) * cell.read();
-  Serial.print(count);
-  Serial.print(" ");
-  Serial.println(zero_weight);
+    zero_weight = ((count-1)/count) * zero_weight  +  (1/count) * cell.read();
+    Serial.print(count);
+    Serial.print(" ");
+    Serial.println(zero_weight);
   }
   return zero_weight;
 }
 
-void MenuA()
-{  
+void MenuA(){  
     lcd.clear();
     lcd.setCursor(0,0);
     while(ReadKeypad()!= 'L')
@@ -167,8 +166,7 @@ void MenuA()
 }
 
 
-void MenuB()
-{  
+void MenuB(){  
     lcd.clear();
     lcd.setCursor(0,0);
     lcd.print("Zeroing");
@@ -184,9 +182,7 @@ void MenuB()
     }
 }
 
-
-void MenuC()
-{  
+void MenuC(){  
     lcd.clear();
     lcd.setCursor(0,0);
     lcd.print("Set weight:");
@@ -196,8 +192,8 @@ void MenuC()
         lcd.setCursor(0,1);
         lcd.print(des_weight);
         lcd.print(" g");
+        
         //Adjusting
-
         if (ReadKeypad() == 'U'){ //up 10g
           des_weight += 10.0f;
           if (des_weight < 0.0f) des_weight = 0.0f;
@@ -222,114 +218,90 @@ void MenuC()
           lcd.setCursor(11,0);
           lcd.print("SAVED");
         }
-       delay(100);
+        delay(100);
     }
 }
-void MenuD()
-{  
+
+void MenuD(){  
     lcd.clear();
     lcd.setCursor(0,0);
     lcd.print("Set desired");
     lcd.setCursor(0,1);
     lcd.print("margins:+-");
-    while(ReadKeypad()!= 'L')
-    {
-        lcd.setCursor(10,1);
-        lcd.print(margin);
-        lcd.print("g");
-        //Adjusting
-
-        if (ReadKeypad() == 'U'){ //up 1g
-          margin += 1.0f;
-          if (margin < 0.0f) margin = 0.0f;
-          Serial.print("changed margin: "); Serial.println(margin);
-          lcd.clear();
-          lcd.setCursor(0,0);
-          lcd.print("Set desired");
-          lcd.setCursor(0,1);
-          lcd.print("margins:+-");
-        }
+    while(ReadKeypad()!= 'L'){
+      lcd.setCursor(10,1);
+      lcd.print(margin);
+      lcd.print("g");
+      //Adjusting
+      if (ReadKeypad() == 'U'){ //up 1g
+        margin += 1.0f;
+        if (margin < 0.0f) margin = 0.0f;
+        Serial.print("changed margin: "); Serial.println(margin);
+        lcd.clear();
+        lcd.setCursor(0,0);
+        lcd.print("Set desired");
+        lcd.setCursor(0,1);
+        lcd.print("margins:+-");
+      }
         
-        if (ReadKeypad() == 'D'){ //Down 10g
-          margin -= 1.0f;
-          if (margin < 0.0f) margin = 0.0f;
-          Serial.print("changed margin: "); Serial.println(margin);
-          lcd.clear();
-          lcd.setCursor(0,0);
-          lcd.print("Set desired");
-          lcd.setCursor(0,1);
-          lcd.print("margins:+-");
-        }
+      if (ReadKeypad() == 'D'){ //Down 10g
+        margin -= 1.0f;
+        if (margin < 0.0f) margin = 0.0f;
+        Serial.print("changed margin: "); Serial.println(margin);
+        lcd.clear();
+        lcd.setCursor(0,0);
+        lcd.print("Set desired");
+        lcd.setCursor(0,1);
+        lcd.print("margins:+-");
+      }
 
-        if (ReadKeypad() == 'S'){ //SAVE
-          EEPROM.put(margin_Address, margin);
-          Serial.print("updated margin: "); Serial.println(margin);
-          lcd.setCursor(11,0);
-          lcd.print("SAVED");
-        }
-       delay(100);
-       
+      if (ReadKeypad() == 'S'){ //SAVE
+        EEPROM.put(margin_Address, margin);
+        Serial.print("updated margin: "); Serial.println(margin);
+        lcd.setCursor(11,0);
+        lcd.print("SAVED");
+      }
+      delay(100);
     }
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-void MainMenuDisplay()
-{
+void MainMenuDisplay(){
     lcd.clear();
     lcd.setCursor(0,0);
-    switch (mainMenuPage)
-    {
-        case 1:
-          lcd.print("1. Measure");
-          break;
-        case 2:
-          lcd.print("2. Zero scale");
-          break;
-        case 3:
-          lcd.print("3. Set weight");
-          break;
-        case 4:
-          lcd.print("4. Set margin");
-          break;
+    switch (mainMenuPage){
+      case 1:
+        lcd.print("1. Measure");
+        break;
+      case 2:
+        lcd.print("2. Zero scale");
+        break;
+      case 3:
+        lcd.print("3. Set weight");
+        break;
+      case 4:
+        lcd.print("4. Set margin");
+        break;
     }
 }
 
-void MainMenuBtn()
-{
-    WaitBtnRelease();
-    if(btn_push == 'D')
-    {
-        mainMenuPage++;
-        if(mainMenuPage > mainMenuTotal)
-          mainMenuPage = 1;
-    }
-    else if(btn_push == 'U')
-    {
-        mainMenuPage--;
-        if(mainMenuPage == 0)
-          mainMenuPage = mainMenuTotal;    
-    }
+void MainMenuBtn(){
+  WaitBtnRelease();
+  if(btn_push == 'D'){
+    mainMenuPage++;
+    if(mainMenuPage > mainMenuTotal)  mainMenuPage = 1;
+  }
+  else if(btn_push == 'U'){
+    mainMenuPage--;
+    if(mainMenuPage == 0)  mainMenuPage = mainMenuTotal;    
+  }
     
-    if(mainMenuPage != mainMenuPageOld) //only update display when page change
-    {
-        MainMenuDisplay();
-        mainMenuPageOld = mainMenuPage;
-    }
+  if(mainMenuPage != mainMenuPageOld){ //only update display when page change
+    MainMenuDisplay();
+    mainMenuPageOld = mainMenuPage;
+  }
 }
 
-char ReadKeypad()
-{
+char ReadKeypad(){
   /* Keypad button analog Value
   no button pressed 1023
   select  741
@@ -339,22 +311,15 @@ char ReadKeypad()
   right   0 
   */
   keypad_value = analogRead(keypad_pin);
-  
-  if(keypad_value < 100)
-    return 'R';
-  else if(keypad_value < 200)
-    return 'U';
-  else if(keypad_value < 400)
-    return 'D';
-  else if(keypad_value < 600)
-    return 'L';
-  else if(keypad_value < 800)
-    return 'S';
-  else 
-    return 'N';
+  if(keypad_value < 100)  return 'R';
+  else if(keypad_value < 200) return 'U';
+  else if(keypad_value < 400) return 'D';
+  else if(keypad_value < 600) return 'L';
+  else if(keypad_value < 800) return 'S';
+  else return 'N';
 }
 
 void WaitBtnRelease()
 {
-    while( analogRead(keypad_pin) < 800){} 
+  while(analogRead(keypad_pin) < 800){} 
 }
